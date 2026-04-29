@@ -1,0 +1,27 @@
+{
+  "name": "aula5",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start --dev-client",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "@react-navigation/native": "^7.2.2",
+    "@react-navigation/native-stack": "^7.14.12",
+    "axios": "^1.15.2",
+    "expo": "~55.0.8",
+    "expo-status-bar": "~55.0.4",
+    "firebase": "^12.12.1",
+    "json-server": "^1.0.0-beta.15",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-native": "0.83.2",
+    "react-native-safe-area-context": "~5.6.2",
+    "react-native-screens": "~4.23.0",
+    "react-native-web": "^0.21.0"
+  },
+  "private": true
+}

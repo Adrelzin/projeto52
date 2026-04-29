@@ -1,0 +1,230 @@
+{
+  "usuarios": [
+    {
+      "id": 1,
+      "nome": "Ronaldo Silva",
+      "email": "ronaldo@gmail.com",
+      "senha": "123"
+    }
+  ],
+  "contatos": [
+    {
+      "id": 1,
+      "nome": "Ronaldo Atacados",
+      "email": "ronaldo@gmail.com",
+      "telefone": "81993334567"
+    }
+  ],
+  "cotacoes" : [
+    {
+    "USD": {
+      "code": "USD",
+      "codein": "BRL",
+      "name": "Dólar Americano/Real Brasileiro",
+      "high": "5.0419",
+      "low": "4.96758",
+      "varBid": "0.0229",
+      "pctChange": "0.458513",
+      "bid": "5.0173",
+      "ask": "5.0203",
+      "timestamp": "1777476440",
+      "create_date": "2026-04-29 12:27:20"
+    },
+    "USDT": {
+      "code": "USD",
+      "codein": "BRLT",
+      "name": "Dólar Americano/Real Brasileiro Turismo",
+      "high": "5.0759",
+      "low": "5.00314",
+      "varBid": "0.02306",
+      "pctChange": "0.458437",
+      "bid": "5.05321",
+      "ask": "5.20971",
+      "timestamp": "1777476440",
+      "create_date": "2026-04-29 12:27:20"
+    },
+    "CAD": {
+      "code": "CAD",
+      "codein": "BRL",
+      "name": "Dólar Canadense/Real Brasileiro",
+      "high": "3.68081",
+      "low": "3.63036",
+      "varBid": "0.017907",
+      "pctChange": "0.491095",
+      "bid": "3.66423",
+      "ask": "3.67284",
+      "timestamp": "1777476312",
+      "create_date": "2026-04-29 12:25:12"
+    },
+    "GBP": {
+      "code": "GBP",
+      "codein": "BRL",
+      "name": "Libra Esterlina/Real Brasileiro",
+      "high": "6.79909",
+      "low": "6.70691",
+      "varBid": "0.014446",
+      "pctChange": "0.213881",
+      "bid": "6.76866",
+      "ask": "6.7727",
+      "timestamp": "1777476440",
+      "create_date": "2026-04-29 12:27:20"
+    },
+    "ARS": {
+      "code": "ARS",
+      "codein": "BRL",
+      "name": "Peso Argentino/Real Brasileiro",
+      "high": "0.00360009",
+      "low": "0.00353621",
+      "varBid": "0.000038",
+      "pctChange": "1.066071",
+      "bid": "0.0035949",
+      "ask": "0.00359492",
+      "timestamp": "1777476389",
+      "create_date": "2026-04-29 12:26:29"
+    },
+    "BTC": {
+      "code": "BTC",
+      "codein": "BRL",
+      "name": "Bitcoin/Real Brasileiro",
+      "high": "388301",
+      "low": "378236",
+      "varBid": "1541",
+      "pctChange": "0.406",
+      "bid": "381461",
+      "ask": "381462",
+      "timestamp": "1777476441",
+      "create_date": "2026-04-29 12:27:21"
+    },
+    "LTC": {
+      "code": "LTC",
+      "codein": "BRL",
+      "name": "Litecoin/Real Brasileiro",
+      "high": "287.5",
+      "low": "274",
+      "varBid": "4.7",
+      "pctChange": "1.711",
+      "bid": "279.6",
+      "ask": "279.7",
+      "timestamp": "1777476437",
+      "create_date": "2026-04-29 12:27:17"
+    },
+    "EUR": {
+      "code": "EUR",
+      "codein": "BRL",
+      "name": "Euro/Real Brasileiro",
+      "high": "5.89275",
+      "low": "5.81395",
+      "varBid": "0.017125",
+      "pctChange": "0.293006",
+      "bid": "5.86167",
+      "ask": "5.87544",
+      "timestamp": "1777476312",
+      "create_date": "2026-04-29 12:25:12"
+    },
+    "JPY": {
+      "code": "JPY",
+      "codein": "BRL",
+      "name": "Iene Japonês/Real Brasileiro",
+      "high": "0.03147203",
+      "low": "0.03108825",
+      "varBid": "0.000024",
+      "pctChange": "0.075655",
+      "bid": "0.03132191",
+      "ask": "0.03134064",
+      "timestamp": "1777476440",
+      "create_date": "2026-04-29 12:27:20"
+    },
+    "CHF": {
+      "code": "CHF",
+      "codein": "BRL",
+      "name": "Franco Suíço/Real Brasileiro",
+      "high": "6.37375",
+      "low": "6.28974",
+      "varBid": "0.024328",
+      "pctChange": "0.384843",
+      "bid": "6.34589",
+      "ask": "6.3608",
+      "timestamp": "1777476312",
+      "create_date": "2026-04-29 12:25:12"
+    },
+    "AUD": {
+      "code": "AUD",
+      "codein": "BRL",
+      "name": "Dólar Australiano/Real Brasileiro",
+      "high": "3.60102",
+      "low": "3.55329",
+      "varBid": "-0.00821",
+      "pctChange": "-0.229066",
+      "bid": "3.57593",
+      "ask": "3.58433",
+      "timestamp": "1777476312",
+      "create_date": "2026-04-29 12:25:12"
+    },
+    "CNY": {
+      "code": "CNY",
+      "codein": "BRL",
+      "name": "Yuan Chinês/Real Brasileiro",
+      "high": "0.73497236",
+      "low": "0.72677553",
+      "varBid": "0.003144",
+      "pctChange": "0.430485",
+      "bid": "0.73359757",
+      "ask": "0.73402559",
+      "timestamp": "1777474795",
+      "create_date": "2026-04-29 11:59:55"
+    },
+    "ILS": {
+      "code": "ILS",
+      "codein": "BRL",
+      "name": "Novo Shekel Israelense/Real Brasileiro",
+      "high": "1.696",
+      "low": "1.672",
+      "varBid": "-0.001",
+      "pctChange": "-0.059416",
+      "bid": "1.682",
+      "ask": "1.692",
+      "timestamp": "1777476443",
+      "create_date": "2026-04-29 12:27:23"
+    },
+    "ETH": {
+      "code": "ETH",
+      "codein": "BRL",
+      "name": "Ethereum/Real Brasileiro",
+      "high": "11698.04",
+      "low": "11338",
+      "varBid": "88.82",
+      "pctChange": "0.782",
+      "bid": "11452.3",
+      "ask": "11453.12",
+      "timestamp": "1777476442",
+      "create_date": "2026-04-29 12:27:22"
+    },
+    "XRP": {
+      "code": "XRP",
+      "codein": "BRL",
+      "name": "XRP/Real Brasileiro",
+      "high": "7.007",
+      "low": "6.821",
+      "varBid": "-0.014",
+      "pctChange": "-0.204",
+      "bid": "6.84",
+      "ask": "6.842",
+      "timestamp": "1777476429",
+      "create_date": "2026-04-29 12:27:09"
+    },
+    "DOGE": {
+      "code": "DOGE",
+      "codein": "BRL",
+      "name": "Dogecoin/Real Brasileiro",
+      "high": "0.557",
+      "low": "0.4923",
+      "varBid": "0.0314",
+      "pctChange": "6.358",
+      "bid": "0.5264",
+      "ask": "0.5266",
+      "timestamp": "1777476441",
+      "create_date": "2026-04-29 12:27:21"
+    }
+  }
+]
+}
