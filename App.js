@@ -11,6 +11,7 @@ import {
 
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { ScrollView } from 'react-native';
 
 import { login, cadastrar } from './auth';
 
@@ -108,14 +109,27 @@ function TelaCadastro({ navigation }) {
     cadastrar(email, senha)
       .then((res) => {
         console.log("CADASTRO OK", res);
-        Alert.alert("Sucesso", "Cadastro realizado com sucesso!");
-        navigation.goBack();
+
+        Alert.alert("Sucesso", "Você foi cadastrado");
+
+        setTimeout(() => {
+          navigation.goBack();
+        }, 500);
       })
       .catch((error) => {
-        console.log("ERRO CADASTRO", error);
-        Alert.alert("Erro", error.message);
+        console.log("ERRO CADASTRO:", error.code);
+
+        if (error.code === "auth/email-already-in-use") {
+          Alert.alert("Erro", "Email já está em uso");
+        } else if (error.code === "auth/weak-password") {
+          Alert.alert("Erro", "A senha deve ter pelo menos 6 caracteres");
+        } else if (error.code === "auth/invalid-email") {
+          Alert.alert("Erro", "Email inválido");
+        } else {
+          Alert.alert("Erro", "Erro ao cadastrar");
+        }
       });
-  };
+  }
 
   return (
     <View style={styles.container}>
@@ -145,26 +159,41 @@ function TelaCadastro({ navigation }) {
 
 // ================= TELA DE COTAÇÃO =================
 function TelaCotacao() {
-  const [usd, setUsd] = React.useState(null);
-  const [eur, setEur] = React.useState(null);
+  const [moedas, setMoedas] = React.useState({});
   const [dataHora, setDataHora] = React.useState("");
 
   const buscarCotacoes = async () => {
     try {
       const response = await fetch(
-        "https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL"
+        "https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL,CAD-BRL,USDT-BRL,GBP-BRL,ARS-BRL,BTC-BRL,LTC-BRL,JPY-BRL,CHF-BRL,AUD-BRL,CNY-BRL,ILS-BRL,ETH-BRL,XRP-BRL,DOGE-BRL"
       );
 
       const data = await response.json();
 
-      const usdData = data.USDBRL;
-      const eurData = data.EURBRL;
+      const resultado = {
+        USD: data.USDBRL,
+        EUR: data.EURBRL,
+        CAD: data.CADBRL,
+        USDT: data.USDTBRL,
+        GBP: data.GBPBRL,
+        ARS: data.ARSBRL,
+        BTC: data.BTCBRL,
+        LTC: data.LTCBRL,
+        JPY: data.JPYBRL,
+        CHF: data.CHFBRL,
+        AUD: data.AUDBRL,
+        CNY: data.CNYBRL,
+        ILS: data.ILSBRL,
+        ETH: data.ETHBRL,
+        XRP: data.XRPBRL,
+        DOGE: data.DOGEBRL,
+      };
 
-      setUsd(parseFloat(usdData.bid));
-      setEur(parseFloat(eurData.bid));
-      setDataHora(usdData.create_date);
+      setMoedas(resultado);
 
+      setDataHora(data.USDBRL.create_date);
     } catch (error) {
+      console.log(error);
       Alert.alert("Erro", "Erro ao buscar cotações");
     }
   };
@@ -173,48 +202,63 @@ function TelaCotacao() {
     buscarCotacoes();
   }, []);
 
-  return (
-    <View style={styles.container}>
+  const renderCard = (code, nome, flag) => {
+    const item = moedas[code];
 
-      <Text style={styles.titulo}>Cotação de Moedas</Text>
-
-      <Text style={styles.subtitulo}>
-        Atualizado em: {dataHora}
-      </Text>
-
-      {/* CARD USD */}
+    return (
       <View style={styles.card}>
-        <Image
-          source={{ uri: "https://flagcdn.com/w80/us.png" }}
-          style={styles.bandeira}
-        />
-        <Text style={styles.moeda}>Dólar Americano (USD)</Text>
-        <Text style={styles.codigo}>USD-BRL</Text>
+        <Image source={{ uri: flag }} style={styles.bandeira} />
+
+        <Text style={styles.moeda}>
+          {nome} ({code})
+        </Text>
+
+        <Text style={styles.codigo}>{code}-BRL</Text>
+
         <Text style={styles.valor}>
-          R$ {usd ? usd.toFixed(2) : "0.00"}
+          R$ {item ? parseFloat(item.bid).toFixed(2) : "0.00"}
         </Text>
       </View>
+    );
+  };
 
-      {/* CARD EUR */}
-      <View style={styles.card}>
-        <Image
-          source={{ uri: "https://flagcdn.com/w80/eu.png" }}
-          style={styles.bandeira}
-        />
-        <Text style={styles.moeda}>Euro (EUR)</Text>
-        <Text style={styles.codigo}>EUR-BRL</Text>
-        <Text style={styles.valor}>
-          R$ {eur ? eur.toFixed(2) : "0.00"}
-        </Text>
-      </View>
+ return (
+  <ScrollView contentContainerStyle={styles.scrollContainer}>
 
-      {/* BOTÃO */}
-      <TouchableOpacity style={styles.botao} onPress={buscarCotacoes}>
-        <Text style={styles.texto}>Atualizar Cotações</Text>
-      </TouchableOpacity>
+    <Text style={styles.titulo}>Cotação de Moedas</Text>
+
+    <Text style={styles.subtitulo}>
+      Atualizado em: {dataHora}
+    </Text>
+
+    {/* GRID */}
+    <View style={styles.grid}>
+
+      {renderCard("USD", "Dólar Americano", "https://flagcdn.com/w80/us.png")}
+      {renderCard("EUR", "Euro", "https://flagcdn.com/w80/eu.png")}
+      {renderCard("CAD", "Dólar Canadense", "https://flagcdn.com/w80/ca.png")}
+      {renderCard("USDT", "Dólar Turismo", "https://flagcdn.com/w80/us.png")}
+      {renderCard("GBP", "Libra Esterlina", "https://flagcdn.com/w80/gb.png")}
+      {renderCard("ARS", "Peso Argentino", "https://flagcdn.com/w80/ar.png")}
+      {renderCard("BTC", "Bitcoin", "https://cryptologos.cc/logos/bitcoin-btc-logo.png")}
+      {renderCard("LTC", "Litecoin", "https://cryptologos.cc/logos/litecoin-ltc-logo.png")}
+      {renderCard("JPY", "Iene Japonês", "https://flagcdn.com/w80/jp.png")}
+      {renderCard("CHF", "Franco Suíço", "https://flagcdn.com/w80/ch.png")}
+      {renderCard("AUD", "Dólar Australiano", "https://flagcdn.com/w80/au.png")}
+      {renderCard("CNY", "Yuan Chinês", "https://flagcdn.com/w80/cn.png")}
+      {renderCard("ILS", "Shekel Israelense", "https://flagcdn.com/w80/il.png")}
+      {renderCard("ETH", "Ethereum", "https://cryptologos.cc/logos/ethereum-eth-logo.png")}
+      {renderCard("XRP", "XRP", "https://cryptologos.cc/logos/xrp-xrp-logo.png")}
+      {renderCard("DOGE", "Dogecoin", "https://cryptologos.cc/logos/dogecoin-doge-logo.png")}
 
     </View>
-  );
+
+    <TouchableOpacity style={styles.botao} onPress={buscarCotacoes}>
+      <Text style={styles.texto}>Atualizar Cotações</Text>
+    </TouchableOpacity>
+
+  </ScrollView>
+ )
 }
 
 // ================= APP =================
@@ -285,7 +329,7 @@ const styles = StyleSheet.create({
   },
 
   container_inputs: {
-    width: 200,
+    width: 400,
     marginTop: 20
   },
 
@@ -328,5 +372,26 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
     marginTop: 5
-  }
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    paddingHorizontal: 10,
+  },
+
+  card: {
+    backgroundColor: "#fff",
+    padding: 15,
+    borderRadius: 10,
+    marginTop: 10,
+    alignItems: "center",
+    width: "47%", // 👈 faz ficar 2 por linha
+  },
+
+  bandeira: {
+    width: 40,
+    height: 30,
+    marginBottom: 8,
+  },
 });
