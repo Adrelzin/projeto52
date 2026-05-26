@@ -1,397 +1,728 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  StyleSheet,
-  Text,
-  View,
-  Image,
-  TextInput,
-  TouchableOpacity,
-  Alert
+  View, Text, TextInput, TouchableOpacity, SafeAreaView,
+  StyleSheet, ScrollView, Image, FlatList, Alert, StatusBar, ActivityIndicator
 } from 'react-native';
-
+import { initializeApp } from 'firebase/app';
+import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updatePassword } from 'firebase/auth';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ScrollView } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 
-import { login, cadastrar } from './auth';
+// ─── FIREBASE ───────────────────────────────────────────────────────────────
+const firebase = initializeApp({
+  apiKey: "AIzaSyC5BVI93vIkRtAXerR31YTE9ek3BzU-4e8",
+  authDomain: "aula6-atividade-prog3.firebaseapp.com",
+  projectId: "aula6-atividade-prog3",
+  storageBucket: "aula6-atividade-prog3.firebasestorage.app",
+  messagingSenderId: "466202203055",
+  appId: "1:466202203055:web:6a5aa9759cc9429eeb955a"
+});
+const db   = getFirestore(firebase);
+const auth = getAuth(firebase);
 
+// ─── CLOUDINARY ──────────────────────────────────────────────────────────────
+const CLOUDINARY = {
+  cloud:  'dgpfajxgl',
+  preset: 'att7prog_upload',
+  get url() { return `https://api.cloudinary.com/v1_1/${this.cloud}/image/upload`; }
+};
+
+// ─── FIRESTORE HELPERS ───────────────────────────────────────────────────────
+const uid = () => auth.currentUser?.uid;
+
+const db_get = async (colecao) => {
+  const snap = await getDoc(doc(db, colecao, uid()));
+  return snap.exists() ? snap.data() : null;
+};
+
+const db_set = (colecao, dados) => setDoc(doc(db, colecao, uid()), dados);
+
+const buscarFavoritos = async () => {
+  const data = await db_get('favoritos');
+  return data?.lista ?? [];
+};
+
+const buscarPerfil = async () => {
+  const data = await db_get('perfis');
+  return data ?? {};
+};
+
+// ─── PAÍSES API ──────────────────────────────────────────────────────────────
+const API_PAISES = 'https://restcountries.com/v3.1';
+
+const buscarTodosPaises = () =>
+  fetch(`${API_PAISES}/all?fields=name,capital,flags,region,subregion,population,languages,currencies,continents,timezones`)
+    .then(r => r.json())
+    .then(lista => lista.sort((a, b) => a.name.common.localeCompare(b.name.common)));
+
+const buscarPaisPorNome = (nome) =>
+  fetch(`${API_PAISES}/name/${encodeURIComponent(nome)}?fullText=true&fields=name,capital,flags,region,subregion,population,languages,currencies,continents,timezones`)
+    .then(r => r.json())
+    .then(data => data?.[0] ?? null);
+
+// ─── CLOUDINARY UPLOAD ───────────────────────────────────────────────────────
+async function uploadFoto(uri) {
+  const blob = await fetch(uri).then(r => r.blob());
+  const form = new FormData();
+  form.append('file', blob, 'foto.jpg');
+  form.append('upload_preset', CLOUDINARY.preset);
+  const res  = await fetch(CLOUDINARY.url, { method: 'POST', body: form });
+  const json = await res.json();
+  if (!json.secure_url) throw new Error(json.error?.message ?? 'Upload falhou');
+  return json.secure_url;
+}
+
+// ─── COMPONENTES BASE ────────────────────────────────────────────────────────
 const Stack = createNativeStackNavigator();
 
-
-// ================= LOGIN =================
-function TelaLogin({ navigation }) {
-  const [email, setEmail] = React.useState('');
-  const [senha, setSenha] = React.useState('');
-
-  const fazerLogin = () => {
-    if (!email || !senha) {
-      Alert.alert("Erro", "Preencha email e senha");
-      return;
-    }
-
-    login(email, senha)
-      .then(() => {
-        Alert.alert("Sucesso", "Login realizado!");
-
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Cotacao' }],
-        });
-      })
-      .catch((error) => {
-        if (error.code === "auth/user-not-found") {
-          Alert.alert("Erro", "Usuário não encontrado");
-        } else if (error.code === "auth/wrong-password") {
-          Alert.alert("Erro", "Senha incorreta");
-        } else {
-          Alert.alert("Erro", "Falha ao fazer login");
-        }
-      });
-  };
-
+function Campo({ icone, placeholder, valor, onChange, senha, teclado, capitalizar, aoSubmeter, olho, onOlho, mostrar }) {
   return (
-    <View style={styles.container}>
-      <Image
-        style={styles.tinyLogo}
-        source={{
-          uri: 'https://marketplace.canva.com/A5alg/MAESXCA5alg/1/tl/canva-user-icon-MAESXCA5alg.png',
-        }}
+    <View style={g.campo}>
+      <Ionicons name={icone} size={18} color="#aaa" style={{ marginRight: 10 }} />
+      <TextInput
+        style={g.campoTexto}
+        placeholder={placeholder}
+        placeholderTextColor="#bbb"
+        value={valor}
+        onChangeText={onChange}
+        secureTextEntry={senha && !mostrar}
+        keyboardType={teclado}
+        autoCapitalize={capitalizar ?? 'none'}
+        onSubmitEditing={aoSubmeter}
       />
-
-      <View style={styles.container_inputs}>
-        <Text>Email</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Digite seu email"
-          onChangeText={setEmail}
-          value={email}
-        />
-
-        <Text>Senha</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Digite sua senha"
-          onChangeText={setSenha}
-          value={senha}
-          secureTextEntry
-        />
-      </View>
-
-      <View style={styles.container_btn}>
-        <TouchableOpacity style={styles.botao} onPress={fazerLogin}>
-          <Text style={styles.texto}>Login</Text>
+      {olho && (
+        <TouchableOpacity onPress={onOlho} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name={mostrar ? 'eye-outline' : 'eye-off-outline'} size={18} color="#aaa" />
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.botao}
-          onPress={() => navigation.navigate('Cadastro')}
-        >
-          <Text style={styles.texto}>Cadastre-se</Text>
-        </TouchableOpacity>
-      </View>
+      )}
     </View>
   );
 }
 
-
-// ================= CADASTRO =================
-function TelaCadastro({ navigation }) {
-  const [nome, setNome] = React.useState('');
-  const [email, setEmail] = React.useState('');
-  const [senha, setSenha] = React.useState('');
-
-  const salvar = () => {
-    if (!email || !senha) {
-      Alert.alert("Erro", "Preencha email e senha");
-      return;
-    }
-
-    cadastrar(email, senha)
-      .then((res) => {
-        console.log("CADASTRO OK", res);
-
-        Alert.alert("Sucesso", "Você foi cadastrado");
-
-        setTimeout(() => {
-          navigation.goBack();
-        }, 500);
-      })
-      .catch((error) => {
-        console.log("ERRO CADASTRO:", error.code);
-
-        if (error.code === "auth/email-already-in-use") {
-          Alert.alert("Erro", "Email já está em uso");
-        } else if (error.code === "auth/weak-password") {
-          Alert.alert("Erro", "A senha deve ter pelo menos 6 caracteres");
-        } else if (error.code === "auth/invalid-email") {
-          Alert.alert("Erro", "Email inválido");
-        } else {
-          Alert.alert("Erro", "Erro ao cadastrar");
-        }
-      });
-  }
-
+function BarraNavegacao({ nav, ativa }) {
+  const abas = [
+    { tela: 'TelaPrincipal', rotulo: 'Início',    iconeOn: 'home',   iconeOff: 'home-outline'   },
+    { tela: 'Favoritos',     rotulo: 'Favoritos', iconeOn: 'heart',  iconeOff: 'heart-outline'  },
+    { tela: 'Perfil',        rotulo: 'Perfil',    iconeOn: 'person', iconeOff: 'person-outline' },
+  ];
   return (
-    <View style={styles.container}>
-      <View style={styles.container_inputs}>
-        <Text>Nome</Text>
-        <TextInput style={styles.input} onChangeText={setNome} value={nome} />
-
-        <Text>Email</Text>
-        <TextInput style={styles.input} onChangeText={setEmail} value={email} />
-
-        <Text>Senha</Text>
-        <TextInput
-          style={styles.input}
-          onChangeText={setSenha}
-          value={senha}
-          secureTextEntry
-        />
-      </View>
-
-      <TouchableOpacity style={styles.botao} onPress={salvar}>
-        <Text style={styles.texto}>Cadastrar</Text>
-      </TouchableOpacity>
+    <View style={g.barra}>
+      {abas.map(({ tela, rotulo, iconeOn, iconeOff }) => {
+        const on = ativa === tela;
+        return (
+          <TouchableOpacity key={tela} style={g.barraBotao} onPress={() => nav.navigate(tela)}>
+            <Ionicons name={on ? iconeOn : iconeOff} size={24} color={on ? AZUL : '#aaa'} />
+            <Text style={[g.barraRotulo, on && g.barraRoduloAtivo]}>{rotulo}</Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }
 
+function TopBar({ esquerda, titulo, direita }) {
+  return (
+    <View style={g.topBar}>
+      <View style={g.topBarLado}>{esquerda}</View>
+      <Text style={g.topBarTitulo}>{titulo}</Text>
+      <View style={g.topBarLado}>{direita}</View>
+    </View>
+  );
+}
 
-// ================= TELA DE COTAÇÃO =================
-function TelaCotacao() {
-  const [moedas, setMoedas] = React.useState({});
-  const [dataHora, setDataHora] = React.useState("");
+function BotaoPrimario({ texto, onPress, cor, icone, disabled }) {
+  return (
+    <TouchableOpacity
+      style={[g.botao, cor && { backgroundColor: cor }, disabled && { opacity: 0.6 }]}
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={0.85}
+    >
+      {icone && <Ionicons name={icone} size={18} color="#fff" style={{ marginRight: 8 }} />}
+      <Text style={g.botaoTexto}>{texto}</Text>
+    </TouchableOpacity>
+  );
+}
 
-  const buscarCotacoes = async () => {
-    try {
-      const response = await fetch(
-        "https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL,CAD-BRL,USDT-BRL,GBP-BRL,ARS-BRL,BTC-BRL,LTC-BRL,JPY-BRL,CHF-BRL,AUD-BRL,CNY-BRL,ILS-BRL,ETH-BRL,XRP-BRL,DOGE-BRL"
-      );
+// ─── TELA LOGIN ───────────────────────────────────────────────────────────────
+function TelaLogin({ navigation: nav }) {
+  const [email, setEmail]   = useState('');
+  const [senha, setSenha]   = useState('');
+  const [verSenha, setVer]  = useState(false);
+  const [erro, setErro]     = useState('');
 
-      const data = await response.json();
-
-      const resultado = {
-        USD: data.USDBRL,
-        EUR: data.EURBRL,
-        CAD: data.CADBRL,
-        USDT: data.USDTBRL,
-        GBP: data.GBPBRL,
-        ARS: data.ARSBRL,
-        BTC: data.BTCBRL,
-        LTC: data.LTCBRL,
-        JPY: data.JPYBRL,
-        CHF: data.CHFBRL,
-        AUD: data.AUDBRL,
-        CNY: data.CNYBRL,
-        ILS: data.ILSBRL,
-        ETH: data.ETHBRL,
-        XRP: data.XRPBRL,
-        DOGE: data.DOGEBRL,
-      };
-
-      setMoedas(resultado);
-
-      setDataHora(data.USDBRL.create_date);
-    } catch (error) {
-      console.log(error);
-      Alert.alert("Erro", "Erro ao buscar cotações");
-    }
+  const entrar = () => {
+    if (!email.trim() || !senha) return setErro('Preencha todos os campos');
+    setErro('');
+    signInWithEmailAndPassword(auth, email.trim(), senha)
+      .then(() => nav.replace('TelaPrincipal'))
+      .catch(() => setErro('Email ou senha incorretos'));
   };
 
-  React.useEffect(() => {
-    buscarCotacoes();
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#EEF2FF' }}>
+      <StatusBar barStyle="dark-content" />
+      <ScrollView contentContainerStyle={g.loginScroll} keyboardShouldPersistTaps="handled">
+        <View style={g.loginHero}>
+          <Image source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/80/Globe_icon.svg/240px-Globe_icon.svg.png' }} style={g.globo} />
+          <Text style={g.loginTitulo}>CONHEÇA{'\n'}O MUNDO</Text>
+          <Text style={g.loginSub}>Explore. Descubra. Viaje.</Text>
+        </View>
+
+        <View style={g.loginForm}>
+          <Campo icone="mail-outline" placeholder="E-mail" valor={email} onChange={setEmail} teclado="email-address" />
+          <Campo icone="lock-closed-outline" placeholder="Senha" valor={senha} onChange={setSenha} senha olho onOlho={() => setVer(!verSenha)} mostrar={verSenha} aoSubmeter={entrar} />
+          {!!erro && <Text style={g.erro}>{erro}</Text>}
+          <BotaoPrimario texto="Entrar" onPress={entrar} />
+          <View style={g.linha}>
+            <Text style={g.mutado}>Ainda não tem conta?  </Text>
+            <TouchableOpacity onPress={() => nav.replace('Cadastro')}>
+              <Text style={g.link}>Cadastre-se</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+// ─── TELA CADASTRO ────────────────────────────────────────────────────────────
+function TelaCadastro({ navigation: nav }) {
+  const [form, setForm] = useState({ nome: '', email: '', senha: '', conf: '' });
+  const [ver, setVer]   = useState({ senha: false, conf: false });
+  const [erro, setErro] = useState('');
+
+  const campo = (chave) => ({
+    valor: form[chave],
+    onChange: (v) => setForm(f => ({ ...f, [chave]: v }))
+  });
+
+  const registrar = () => {
+    const { nome, email, senha, conf } = form;
+    if (!nome || !email || !senha || !conf) return setErro('Preencha todos os campos!');
+    if (senha.length < 6)                   return setErro('Senha: mínimo 6 caracteres.');
+    if (senha !== conf)                     return setErro('As senhas não coincidem.');
+    setErro('');
+    createUserWithEmailAndPassword(auth, email.trim(), senha)
+      .then(async ({ user }) => {
+        await db_set('perfis', { nome: nome.trim(), foto: null, paisesVisitados: 0, resenhas: 0 });
+        Alert.alert('Sucesso', 'Conta criada!');
+        nav.replace('TelaPrincipal');
+      })
+      .catch(e => {
+        if (e.code === 'auth/email-already-in-use') setErro('Email já está em uso');
+        else setErro(e.message);
+      });
+  };
+
+  return (
+    <SafeAreaView style={g.tela}>
+      <ScrollView contentContainerStyle={{ padding: 24 }} keyboardShouldPersistTaps="handled">
+        <TouchableOpacity style={g.voltarBtn} onPress={() => nav.replace('TelaLogin')}>
+          <Ionicons name="arrow-back" size={22} color="#222" />
+        </TouchableOpacity>
+        <Text style={g.tituloPagina}>Criar Conta</Text>
+        <Text style={g.mutado}>Preencha os dados para se cadastrar</Text>
+
+        <View style={{ marginTop: 24 }}>
+          <Campo icone="person-outline" placeholder="Nome completo" capitalizar="words" {...campo('nome')} />
+          <Campo icone="mail-outline"   placeholder="E-mail"        teclado="email-address" {...campo('email')} />
+          <Campo icone="lock-closed-outline" placeholder="Senha"           senha olho onOlho={() => setVer(v => ({ ...v, senha: !v.senha }))} mostrar={ver.senha} {...campo('senha')} />
+          <Campo icone="lock-closed-outline" placeholder="Confirmar senha" senha olho onOlho={() => setVer(v => ({ ...v, conf:  !v.conf  }))} mostrar={ver.conf}  {...campo('conf')} aoSubmeter={registrar} />
+        </View>
+
+        {!!erro && <Text style={g.erro}>{erro}</Text>}
+        <BotaoPrimario texto="Cadastrar" onPress={registrar} />
+        <View style={g.linha}>
+          <Text style={g.mutado}>Já tem conta?  </Text>
+          <TouchableOpacity onPress={() => nav.replace('TelaLogin')}>
+            <Text style={g.link}>Faça login</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+// ─── TELA PRINCIPAL ───────────────────────────────────────────────────────────
+function TelaPrincipal({ navigation: nav }) {
+  const [paises,    setPaises]    = useState([]);
+  const [filtro,    setFiltro]    = useState('');
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    buscarTodosPaises()
+      .then(setPaises)
+      .catch(() => Alert.alert('Erro', 'Não foi possível carregar os países.'))
+      .finally(() => setCarregando(false));
   }, []);
 
-  const renderCard = (code, nome, flag) => {
-    const item = moedas[code];
+  const lista = paises.filter(p =>
+    p.name.common.toLowerCase().includes(filtro.toLowerCase())
+  );
 
-    return (
-      <View style={styles.card}>
-        <Image source={{ uri: flag }} style={styles.bandeira} />
-
-        <Text style={styles.moeda}>
-          {nome} ({code})
-        </Text>
-
-        <Text style={styles.codigo}>{code}-BRL</Text>
-
-        <Text style={styles.valor}>
-          R$ {item ? parseFloat(item.bid).toFixed(2) : "0.00"}
-        </Text>
+  const renderPais = useCallback(({ item: p }) => (
+    <TouchableOpacity style={g.cardPais} onPress={() => nav.navigate('Detalhes', { pais: p })}>
+      <Image source={{ uri: p.flags.png }} style={g.bandeirinha} />
+      <View style={{ flex: 1 }}>
+        <Text style={g.nomePais}>{p.name.common}</Text>
+        <Text style={g.capitalPais}>Capital: {p.capital?.[0] ?? 'N/A'}</Text>
       </View>
-    );
-  };
-
- return (
-  <ScrollView contentContainerStyle={styles.scrollContainer}>
-
-    <Text style={styles.titulo}>Cotação de Moedas</Text>
-
-    <Text style={styles.subtitulo}>
-      Atualizado em: {dataHora}
-    </Text>
-
-    {/* GRID */}
-    <View style={styles.grid}>
-
-      {renderCard("USD", "Dólar Americano", "https://flagcdn.com/w80/us.png")}
-      {renderCard("EUR", "Euro", "https://flagcdn.com/w80/eu.png")}
-      {renderCard("CAD", "Dólar Canadense", "https://flagcdn.com/w80/ca.png")}
-      {renderCard("USDT", "Dólar Turismo", "https://flagcdn.com/w80/us.png")}
-      {renderCard("GBP", "Libra Esterlina", "https://flagcdn.com/w80/gb.png")}
-      {renderCard("ARS", "Peso Argentino", "https://flagcdn.com/w80/ar.png")}
-      {renderCard("BTC", "Bitcoin", "https://cryptologos.cc/logos/bitcoin-btc-logo.png")}
-      {renderCard("LTC", "Litecoin", "https://cryptologos.cc/logos/litecoin-ltc-logo.png")}
-      {renderCard("JPY", "Iene Japonês", "https://flagcdn.com/w80/jp.png")}
-      {renderCard("CHF", "Franco Suíço", "https://flagcdn.com/w80/ch.png")}
-      {renderCard("AUD", "Dólar Australiano", "https://flagcdn.com/w80/au.png")}
-      {renderCard("CNY", "Yuan Chinês", "https://flagcdn.com/w80/cn.png")}
-      {renderCard("ILS", "Shekel Israelense", "https://flagcdn.com/w80/il.png")}
-      {renderCard("ETH", "Ethereum", "https://cryptologos.cc/logos/ethereum-eth-logo.png")}
-      {renderCard("XRP", "XRP", "https://cryptologos.cc/logos/xrp-xrp-logo.png")}
-      {renderCard("DOGE", "Dogecoin", "https://cryptologos.cc/logos/dogecoin-doge-logo.png")}
-
-    </View>
-
-    <TouchableOpacity style={styles.botao} onPress={buscarCotacoes}>
-      <Text style={styles.texto}>Atualizar Cotações</Text>
+      <Ionicons name="chevron-forward" size={20} color="#ccc" />
     </TouchableOpacity>
+  ), []);
 
-  </ScrollView>
- )
+  return (
+    <View style={{ flex: 1, backgroundColor: '#F5F7FF' }}>
+      <StatusBar barStyle="light-content" backgroundColor={AZUL} />
+      <TopBar
+        titulo="Países"
+        esquerda={<TouchableOpacity><Ionicons name="menu" size={22} color="#fff" /></TouchableOpacity>}
+        direita={<TouchableOpacity><Ionicons name="notifications-outline" size={22} color="#fff" /></TouchableOpacity>}
+      />
+      <View style={g.buscaWrapper}>
+        <Ionicons name="search" size={16} color="#aaa" style={{ marginRight: 8 }} />
+        <TextInput style={g.buscaInput} placeholder="Pesquisar país..." placeholderTextColor="#bbb" value={filtro} onChangeText={setFiltro} />
+      </View>
+
+      {carregando
+        ? <ActivityIndicator size="large" color={AZUL} style={{ marginTop: 40 }} />
+        : <FlatList data={lista} keyExtractor={p => p.name.common} renderItem={renderPais} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }} />
+      }
+      <BarraNavegacao nav={nav} ativa="TelaPrincipal" />
+    </View>
+  );
 }
 
-// ================= APP =================
+// ─── TELA DETALHES ────────────────────────────────────────────────────────────
+function TelaDetalhes({ route, navigation: nav }) {
+  const { pais } = route.params;
+  const [favoritado, setFavoritado] = useState(false);
+
+  useEffect(() => {
+    buscarFavoritos().then(lista =>
+      setFavoritado(lista.some(f => f.nome === pais.name.common))
+    );
+  }, []);
+
+  const alternarFavorito = async () => {
+    try {
+      const lista = await buscarFavoritos();
+      const jatem = lista.some(f => f.nome === pais.name.common);
+      const nova  = jatem
+        ? lista.filter(f => f.nome !== pais.name.common)
+        : [...lista, { nome: pais.name.common, capital: pais.capital?.[0] ?? 'N/A', bandeira: pais.flags.png, regiao: pais.region, pais }];
+      await db_set('favoritos', { lista: nova });
+      setFavoritado(!jatem);
+    } catch (e) { Alert.alert('Erro', e.message); }
+  };
+
+  const infos = [
+    ['location-outline',   'Capital',      pais.capital?.[0]],
+    ['people-outline',     'População',    pais.population?.toLocaleString()],
+    ['chatbubble-outline', 'Idioma',       Object.values(pais.languages  ?? {}).join(', ')],
+    ['cash-outline',       'Moeda',        Object.values(pais.currencies ?? {}).map(c => c.name).join(', ')],
+    ['earth-outline',      'Região',       pais.region],
+    ['map-outline',        'Sub-região',   pais.subregion],
+    ['globe-outline',      'Continente',   pais.continents?.[0]],
+    ['time-outline',       'Fuso horário', pais.timezones?.[0]],
+  ];
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+      <TopBar
+        titulo="Detalhes do País"
+        esquerda={
+          <TouchableOpacity onPress={() => nav.goBack()}>
+            <Ionicons name="arrow-back" size={22} color="#fff" />
+          </TouchableOpacity>
+        }
+        direita={
+          <TouchableOpacity onPress={alternarFavorito}>
+            <Ionicons name={favoritado ? 'heart' : 'heart-outline'} size={22} color="#fff" />
+          </TouchableOpacity>
+        }
+      />
+      <ScrollView>
+        <Image source={{ uri: pais.flags.png }} style={g.bannerPais} />
+        <View style={{ padding: 20 }}>
+          <Image source={{ uri: pais.flags.png }} style={g.bandeiraDetalhes} />
+          <Text style={g.nomeGrande}>{pais.name.common}</Text>
+          <Text style={g.nomeOficial}>{pais.name.official}</Text>
+          {infos.map(([icone, rotulo, valor]) => (
+            <View key={rotulo} style={g.infoLinha}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name={icone} size={18} color={AZUL} style={{ marginRight: 10 }} />
+                <Text style={g.infoRotulo}>{rotulo}</Text>
+              </View>
+              <Text style={g.infoValor}>{valor ?? 'N/A'}</Text>
+            </View>
+          ))}
+          <BotaoPrimario
+            texto={favoritado ? 'Remover dos Favoritos' : 'Adicionar aos Favoritos'}
+            icone={favoritado ? 'heart-dislike' : 'heart'}
+            cor={favoritado ? '#e53935' : AZUL}
+            onPress={alternarFavorito}
+          />
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+// ─── TELA PERFIL ──────────────────────────────────────────────────────────────
+function TelaPerfil({ navigation: nav }) {
+  const usuario = auth.currentUser;
+  const [perfil, setPerfil] = useState({ nome: '', foto: null });
+  const [contadores, setContadores] = useState({ favoritos: 0, paisesVisitados: 0, resenhas: 0 });
+
+  const carregar = useCallback(async () => {
+    const [p, favs] = await Promise.all([buscarPerfil(), buscarFavoritos()]);
+    setPerfil({ nome: p.nome ?? '', foto: p.foto ?? null });
+    setContadores({ favoritos: favs.length, paisesVisitados: p.paisesVisitados ?? 0, resenhas: p.resenhas ?? 0 });
+  }, []);
+
+  useEffect(() => {
+    const sub = nav.addListener('focus', carregar);
+    return sub;
+  }, [nav, carregar]);
+
+  const opcoes = [
+    { icone: 'pencil-outline',      texto: 'Editar Perfil',  acao: () => {} },
+    { icone: 'camera-outline',      texto: 'Alterar Foto',   acao: () => nav.navigate('AlterarFoto') },
+    { icone: 'lock-closed-outline', texto: 'Alterar Senha',  acao: () => nav.navigate('AlterarSenha') },
+  ];
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#F5F7FF' }}>
+      <StatusBar barStyle="light-content" backgroundColor={AZUL} />
+      <TopBar
+        titulo="Meu Perfil"
+        esquerda={<TouchableOpacity><Ionicons name="menu" size={22} color="#fff" /></TouchableOpacity>}
+        direita={<TouchableOpacity><Ionicons name="create-outline" size={22} color="#fff" /></TouchableOpacity>}
+      />
+      <ScrollView contentContainerStyle={{ alignItems: 'center', paddingHorizontal: 20, paddingBottom: 24 }}>
+        <View style={{ marginTop: 20, marginBottom: 10, position: 'relative' }}>
+          <Image
+            source={{ uri: perfil.foto ?? 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png' }}
+            style={g.avatar}
+          />
+          <View style={g.avatarCracha}>
+            <Ionicons name="camera" size={13} color="#fff" />
+          </View>
+        </View>
+
+        <Text style={g.perfilNome}>{perfil.nome || usuario?.email?.split('@')[0] || 'Usuário'}</Text>
+        <Text style={g.perfilEmail}>{usuario?.email}</Text>
+
+        <View style={g.statsBox}>
+          {[
+            { num: contadores.favoritos,       rot: 'Favoritos'       },
+            { num: contadores.paisesVisitados, rot: 'Países visitados' },
+            { num: contadores.resenhas,        rot: 'Resenhas'        },
+          ].map(({ num, rot }, i, arr) => (
+            <React.Fragment key={rot}>
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <Text style={g.statNum}>{num}</Text>
+                <Text style={g.statRot}>{rot}</Text>
+              </View>
+              {i < arr.length - 1 && <View style={g.statDivisor} />}
+            </React.Fragment>
+          ))}
+        </View>
+
+        <View style={g.menuBox}>
+          {opcoes.map(({ icone, texto, acao }, i) => (
+            <TouchableOpacity key={texto} style={[g.menuItem, i < opcoes.length - 1 && g.menuBorda]} onPress={acao}>
+              <Ionicons name={icone} size={20} color="#444" style={{ marginRight: 14 }} />
+              <Text style={g.menuTexto}>{texto}</Text>
+              <Ionicons name="chevron-forward" size={18} color="#ccc" />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <TouchableOpacity style={g.menuBox} onPress={() => signOut(auth).then(() => nav.replace('TelaLogin'))}>
+          <View style={g.menuItem}>
+            <Ionicons name="log-out-outline" size={20} color="#e53935" style={{ marginRight: 14 }} />
+            <Text style={[g.menuTexto, { color: '#e53935' }]}>Sair</Text>
+          </View>
+        </TouchableOpacity>
+      </ScrollView>
+      <BarraNavegacao nav={nav} ativa="Perfil" />
+    </View>
+  );
+}
+
+// ─── TELA FAVORITOS ───────────────────────────────────────────────────────────
+function TelaFavoritos({ navigation: nav }) {
+  const [lista, setLista] = useState([]);
+
+  useEffect(() => {
+    const sub = nav.addListener('focus', () =>
+      buscarFavoritos().then(setLista).catch(e => Alert.alert('Erro', e.message))
+    );
+    return sub;
+  }, [nav]);
+
+  const remover = async (nome) => {
+    const nova = lista.filter(f => f.nome !== nome);
+    await db_set('favoritos', { lista: nova });
+    setLista(nova);
+  };
+
+  const abrirDetalhes = async (item) => {
+    if (item.pais) return nav.navigate('Detalhes', { pais: item.pais });
+    const pais = await buscarPaisPorNome(item.nome);
+    if (pais) nav.navigate('Detalhes', { pais });
+    else Alert.alert('Erro', 'Não foi possível carregar os detalhes.');
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#F5F7FF' }}>
+      <StatusBar barStyle="light-content" backgroundColor={AZUL} />
+      <TopBar
+        titulo="Meus Favoritos"
+        esquerda={<TouchableOpacity><Ionicons name="menu" size={22} color="#fff" /></TouchableOpacity>}
+        direita={<View style={{ width: 36 }} />}
+      />
+      <FlatList
+        data={lista}
+        keyExtractor={f => f.nome}
+        contentContainerStyle={{ padding: 16 }}
+        ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 40, color: '#aaa' }}>Nenhum favorito ainda.</Text>}
+        renderItem={({ item }) => (
+          <TouchableOpacity style={g.cardFav} onPress={() => abrirDetalhes(item)}>
+            <Image source={{ uri: item.bandeira }} style={g.imagemFav} />
+            <View style={{ flex: 1, paddingHorizontal: 14 }}>
+              <Text style={g.nomePais}>{item.nome}</Text>
+              <Text style={g.capitalPais}>Capital: {item.capital}</Text>
+            </View>
+            <TouchableOpacity onPress={() => remover(item.nome)} style={{ padding: 10 }}>
+              <Ionicons name="heart" size={24} color="#e53935" />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        )}
+      />
+      <BarraNavegacao nav={nav} ativa="Favoritos" />
+    </View>
+  );
+}
+
+// ─── TELA ALTERAR FOTO ────────────────────────────────────────────────────────
+function TelaAlterarFoto({ navigation: nav }) {
+  const [imagem,   setImagem]   = useState(null);
+  const [enviando, setEnviando] = useState(false);
+
+  const pedirGaleria = async () => {
+    const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!granted) return Alert.alert('Permissão negada');
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, allowsEditing: true });
+    if (!res.canceled) setImagem(res.assets[0]);
+  };
+
+  const pedirCamera = async () => {
+    const { granted } = await ImagePicker.requestCameraPermissionsAsync();
+    if (!granted) return Alert.alert('Permissão negada');
+    const res = await ImagePicker.launchCameraAsync({ quality: 0.7, allowsEditing: true });
+    if (!res.canceled) setImagem(res.assets[0]);
+  };
+
+  const salvar = async () => {
+    if (!imagem) return Alert.alert('Aviso', 'Escolha uma imagem primeiro');
+    setEnviando(true);
+    try {
+      const url = await uploadFoto(imagem.uri);
+      const perfilAtual = await buscarPerfil();
+      await db_set('perfis', { ...perfilAtual, foto: url });
+      Alert.alert('Sucesso', 'Foto atualizada!');
+      nav.goBack();
+    } catch (e) {
+      Alert.alert('Erro', e.message);
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <SafeAreaView style={g.tela}>
+      <ScrollView contentContainerStyle={{ alignItems: 'center', padding: 28 }}>
+        <View style={{ position: 'relative', marginBottom: 16 }}>
+          <Image
+            source={{ uri: imagem?.uri ?? 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png' }}
+            style={g.avatarGrande}
+          />
+          <View style={g.avatarCracha}>
+            <Ionicons name="camera" size={13} color="#fff" />
+          </View>
+        </View>
+
+        <Text style={g.tituloPagina}>{imagem ? 'Imagem selecionada' : 'Escolha uma imagem'}</Text>
+        <Text style={[g.mutado, { marginBottom: 28 }]}>Sua foto será enviada para a Cloudinary</Text>
+
+        <TouchableOpacity style={g.botaoOutline} onPress={pedirGaleria}>
+          <Ionicons name="images-outline" size={20} color={AZUL} style={{ marginRight: 10 }} />
+          <Text style={g.botaoOutlineTexto}>Escolher da Galeria</Text>
+        </TouchableOpacity>
+
+        <BotaoPrimario texto="Tirar Foto" icone="camera-outline" onPress={pedirCamera} />
+
+        {imagem && (
+          <BotaoPrimario
+            texto={enviando ? 'Salvando...' : 'Confirmar e Salvar'}
+            icone="cloud-upload-outline"
+            cor="#28a745"
+            onPress={salvar}
+            disabled={enviando}
+          />
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+// ─── TELA ALTERAR SENHA ───────────────────────────────────────────────────────
+function TelaAlterarSenha({ navigation: nav }) {
+  const [nova,     setNova]     = useState('');
+  const [conf,     setConf]     = useState('');
+  const [erro,     setErro]     = useState('');
+  const [salvando, setSalvando] = useState(false);
+
+  const salvar = async () => {
+    setErro('');
+    if (!nova || !conf)     return setErro('Preencha todos os campos.');
+    if (nova.length < 6)    return setErro('Mínimo 6 caracteres.');
+    if (nova !== conf)      return setErro('As senhas não coincidem.');
+    setSalvando(true);
+    try {
+      await updatePassword(auth.currentUser, nova);
+      Alert.alert('Sucesso', 'Senha alterada!');
+      nav.goBack();
+    } catch (e) {
+      setErro(e.message.includes('requires-recent-login')
+        ? 'Saia e entre novamente para alterar a senha.'
+        : e.message);
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <SafeAreaView style={g.tela}>
+      <View style={{ padding: 24 }}>
+        <Text style={g.tituloPagina}>Alterar Senha</Text>
+        <View style={{ marginTop: 16 }}>
+          <Campo icone="lock-closed-outline" placeholder="Nova senha"          valor={nova} onChange={setNova} senha />
+          <Campo icone="lock-closed-outline" placeholder="Confirmar nova senha" valor={conf} onChange={setConf} senha aoSubmeter={salvar} />
+        </View>
+        {!!erro && <Text style={g.erro}>{erro}</Text>}
+        <BotaoPrimario texto={salvando ? 'Salvando...' : 'Salvar'} onPress={salvar} disabled={salvando} />
+      </View>
+    </SafeAreaView>
+  );
+}
+
+// ─── APP ROOT ─────────────────────────────────────────────────────────────────
 export default function App() {
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="Login">
-        <Stack.Screen name="Login" component={TelaLogin} />
-        <Stack.Screen name="Cadastro" component={TelaCadastro} />
-        <Stack.Screen name="Cotacao" component={TelaCotacao} />
+      <Stack.Navigator initialRouteName="TelaLogin" screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="TelaLogin"      component={TelaLogin} />
+        <Stack.Screen name="Cadastro"       component={TelaCadastro} />
+        <Stack.Screen name="TelaPrincipal"  component={TelaPrincipal} />
+        <Stack.Screen name="Detalhes"       component={TelaDetalhes} />
+        <Stack.Screen name="Favoritos"      component={TelaFavoritos} />
+        <Stack.Screen name="Perfil"         component={TelaPerfil} />
+        <Stack.Screen name="AlterarFoto"    component={TelaAlterarFoto}  options={{ headerShown: true, title: 'Alterar Foto' }} />
+        <Stack.Screen name="AlterarSenha"   component={TelaAlterarSenha} options={{ headerShown: true, title: 'Alterar Senha' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
 }
 
+// ─── CONSTANTES ───────────────────────────────────────────────────────────────
+const AZUL = '#1565FF';
 
-// ================= ESTILOS =================
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FAEBD7',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
+// ─── ESTILOS ──────────────────────────────────────────────────────────────────
+const g = StyleSheet.create({
+  tela: { flex: 1, backgroundColor: '#fff' },
 
-  titulo: {
-    fontSize: 22,
-    fontWeight: 'bold'
-  },
+  // Login
+  loginScroll:  { alignItems: 'center', paddingBottom: 40 },
+  loginHero:    { alignItems: 'center', paddingTop: 48, paddingBottom: 24 },
+  globo:        { width: 100, height: 100, marginBottom: 14 },
+  loginTitulo:  { fontSize: 32, fontWeight: '900', color: AZUL, textAlign: 'center', lineHeight: 38, letterSpacing: 1 },
+  loginSub:     { fontSize: 14, color: '#888', marginTop: 8 },
+  loginForm:    { width: '100%', paddingHorizontal: 28 },
 
-  subtitulo: {
-    marginTop: 5,
-    marginBottom: 20
-  },
+  // Campo
+  campo:      { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#dde3f0', marginBottom: 14, paddingHorizontal: 14, height: 52, elevation: 1 },
+  campoTexto: { flex: 1, fontSize: 15, color: '#222' },
 
-  tinyLogo: {
-    width: 50,
-    height: 50
-  },
+  // Botões
+  botao:            { backgroundColor: AZUL, borderRadius: 12, height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 8, elevation: 3, width: '100%' },
+  botaoTexto:       { color: '#fff', fontSize: 16, fontWeight: '700' },
+  botaoOutline:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%', height: 52, borderWidth: 1.5, borderColor: AZUL, borderRadius: 12, marginTop: 8 },
+  botaoOutlineTexto:{ color: AZUL, fontSize: 15, fontWeight: '700' },
 
-  input: {
-    backgroundColor: '#fff',
-    height: 40,
-    margin: 12,
-    borderWidth: 1,
-    padding: 10,
-    width: 200
-  },
+  // Misc
+  erro:       { color: '#e53935', fontSize: 13, textAlign: 'center', marginBottom: 8 },
+  mutado:     { color: '#888', fontSize: 14 },
+  link:       { color: AZUL, fontSize: 14, fontWeight: '700' },
+  linha:      { flexDirection: 'row', justifyContent: 'center', marginTop: 20 },
+  voltarBtn:  { width: 38, height: 38, borderRadius: 10, backgroundColor: '#f0f4ff', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+  tituloPagina:{ fontSize: 26, fontWeight: '800', color: '#111', marginBottom: 6 },
 
-  botao: {
-    backgroundColor: '#149e02ff',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 15,
-    width: 200
-  },
+  // TopBar
+  topBar:       { backgroundColor: AZUL, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 48, paddingBottom: 14 },
+  topBarTitulo: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  topBarLado:   { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
 
-  texto: {
-    color: '#fff',
-    fontWeight: 'bold'
-  },
+  // Busca
+  buscaWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', margin: 14, borderRadius: 12, paddingHorizontal: 14, height: 46, borderWidth: 1, borderColor: '#e8eaf0', elevation: 2 },
+  buscaInput:   { flex: 1, fontSize: 14, color: '#222' },
 
-  container_btn: {
-    gap: 10,
-    marginTop: 10,
-    width: 200
-  },
+  // Card país
+  cardPais:   { backgroundColor: '#fff', marginBottom: 10, padding: 14, borderRadius: 14, flexDirection: 'row', alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+  bandeirinha:{ width: 58, height: 40, marginRight: 14, borderRadius: 6 },
+  nomePais:   { fontSize: 16, fontWeight: '700', color: '#111', marginBottom: 2 },
+  capitalPais:{ color: '#888', fontSize: 13 },
 
-  container_inputs: {
-    width: 400,
-    marginTop: 20
-  },
+  // Detalhes
+  bannerPais:      { width: '100%', height: 200 },
+  bandeiraDetalhes:{ width: 52, height: 36, borderRadius: 4, marginBottom: 10 },
+  nomeGrande:      { fontSize: 28, fontWeight: '800', color: '#111', marginBottom: 2 },
+  nomeOficial:     { fontSize: 13, color: '#888', marginBottom: 20 },
+  infoLinha:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  infoRotulo:      { fontSize: 15, color: '#444', fontWeight: '500' },
+  infoValor:       { fontSize: 15, color: '#111', fontWeight: '600', maxWidth: '50%', textAlign: 'right' },
 
-  card: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 10,
-    marginTop: 10,
-    alignItems: 'center',
-    width: 250
-  },
+  // Perfil
+  avatar:      { width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: '#fff', elevation: 4 },
+  avatarCracha:{ position: 'absolute', bottom: 0, right: 0, backgroundColor: AZUL, width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' },
+  avatarGrande:{ width: 130, height: 130, borderRadius: 65, borderWidth: 3, borderColor: '#e0e7ff' },
+  perfilNome:  { fontSize: 20, fontWeight: '800', color: '#111', marginBottom: 2 },
+  perfilEmail: { fontSize: 13, color: '#888', marginBottom: 18 },
+  statsBox:    { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 16, paddingVertical: 16, paddingHorizontal: 20, width: '100%', elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, marginBottom: 20 },
+  statNum:     { fontSize: 20, fontWeight: '800', color: AZUL },
+  statRot:     { fontSize: 11, color: '#888', marginTop: 2, textAlign: 'center' },
+  statDivisor: { width: 1, backgroundColor: '#eee' },
 
-  cardTitulo: {
-    fontSize: 18
-  },
+  // Menu
+  menuBox:  { backgroundColor: '#fff', borderRadius: 16, width: '100%', elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, marginBottom: 14, overflow: 'hidden' },
+  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 18 },
+  menuBorda:{ borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  menuTexto:{ flex: 1, fontSize: 15, color: '#222', fontWeight: '500' },
 
-  valor: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginTop: 5
-  },
+  // Favoritos
+  cardFav:  { backgroundColor: '#fff', borderRadius: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'center', overflow: 'hidden', elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+  imagemFav:{ width: 90, height: 70 },
 
-  bandeira: {
-    width: 50,
-    height: 35,
-    marginBottom: 10
-  },
-
-  moeda: {
-    fontSize: 16,
-    fontWeight: "bold"
-  },
-
-  codigo: {
-    fontSize: 14,
-    color: "gray"
-  },
-
-  valor: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginTop: 5
-  },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    paddingHorizontal: 10,
-  },
-
-  card: {
-    backgroundColor: "#fff",
-    padding: 15,
-    borderRadius: 10,
-    marginTop: 10,
-    alignItems: "center",
-    width: "47%", // 👈 faz ficar 2 por linha
-  },
-
-  bandeira: {
-    width: 40,
-    height: 30,
-    marginBottom: 8,
-  },
+  // Barra navegação
+  barra:         { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 10, paddingBottom: 16, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#e0e0e0' },
+  barraBotao:    { alignItems: 'center', flex: 1 },
+  barraRotulo:   { fontSize: 11, color: '#aaa', marginTop: 3 },
+  barraRoduloAtivo: { color: AZUL, fontWeight: '600' },
 });
